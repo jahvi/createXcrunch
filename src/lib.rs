@@ -249,7 +249,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
 
     // track how many addresses have been found and information about them
     let mut found: u64 = 0;
-    let found_list: Vec<String> = vec![];
+    let mut found_list: Vec<String> = vec![];
 
     // set up a controller for terminal output
     let term = Term::stdout();
@@ -545,6 +545,16 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             leading,
             total
         );
+
+        // Add found address to list
+        match config.reward {
+            RewardVariant::Matching { pattern: _ } => {
+                found_list.push(output.clone());
+            }
+            _ => {
+                found_list.push(output.clone());
+            }
+        }
 
         // Update best result
         let current_result = MiningResult::new(

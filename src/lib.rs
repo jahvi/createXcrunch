@@ -547,14 +547,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
         );
 
         // Add found address to list
-        match config.reward {
-            RewardVariant::Matching { pattern: _ } => {
-                found_list.push(output.clone());
-            }
-            _ => {
-                found_list.push(output.clone());
-            }
-        }
+        found_list.push(output.clone());
 
         // Update best result
         let current_result = MiningResult::new(
@@ -576,7 +569,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
                     current_result.leading_zeros > best.leading_zeros
                         || current_result.total_zeros > best.total_zeros
                 }
-                RewardVariant::Matching { .. } => false, // For pattern matching, we don't track "best"
+                RewardVariant::Matching { .. } => false,
             },
         };
 

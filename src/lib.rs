@@ -455,7 +455,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
 
                 // Add best result to display
                 if let Some(best) = &best_result {
-                    term.write_line(&format!("\nBest result so far: {}", best.format()))?;
+                    term.write_line(&format!("\nBest result: {}", best.format()))?;
                 }
             }
 

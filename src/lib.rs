@@ -76,6 +76,33 @@ pub struct Config<'a> {
     pub output: &'a str,
 }
 
+// Add new struct to track best result
+#[derive(Clone)]
+struct MiningResult {
+    salt: String,
+    address: String,
+    leading_zeros: usize,
+    total_zeros: usize,
+}
+
+impl MiningResult {
+    fn new(salt: String, address: String, leading_zeros: usize, total_zeros: usize) -> Self {
+        Self {
+            salt,
+            address,
+            leading_zeros,
+            total_zeros,
+        }
+    }
+
+    fn format(&self) -> String {
+        format!(
+            "{} => {} ({} / {})",
+            self.salt, self.address, self.leading_zeros, self.total_zeros
+        )
+    }
+}
+
 impl<'a> Config<'a> {
     pub fn new(
         gpu_device: u8,
@@ -222,7 +249,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
 
     // track how many addresses have been found and information about them
     let mut found: u64 = 0;
-    let mut found_list: Vec<String> = vec![];
+    let found_list: Vec<String> = vec![];
 
     // set up a controller for terminal output
     let term = Term::stdout();
@@ -269,6 +296,9 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
 
     // the last work duration in milliseconds
     let mut work_duration_millis: u64 = 0;
+
+    // Add best result tracking
+    let mut best_result: Option<MiningResult> = None;
 
     // begin searching for addresses
     loop {
@@ -422,6 +452,11 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
                 let ordered: Vec<String> = last_rows.iter().cloned().rev().collect();
                 let recently_found = &ordered.join("\n");
                 term.write_line(recently_found)?;
+
+                // Add best result to display
+                if let Some(best) = &best_result {
+                    term.write_line(&format!("\nBest result so far: {}", best.format()))?;
+                }
             }
 
             // increment the cumulative nonce (does not reset after a match)
@@ -503,16 +538,40 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             total += 1;
         }
 
-        let output = format!("0x{} => 0x{}", hex::encode(salt), hex::encode(address),);
+        let output = format!(
+            "0x{} => 0x{} ({} / {})",
+            hex::encode(&salt),
+            hex::encode(&address),
+            leading,
+            total
+        );
 
-        let show = format!("{output} ({leading} / {total})");
-        match config.reward {
-            RewardVariant::Matching { pattern: _ } => {
-                found_list.push(output.to_string());
-            }
-            _ => {
-                found_list.push(show);
-            }
+        // Update best result
+        let current_result = MiningResult::new(
+            format!("0x{}", hex::encode(&salt)),
+            format!("0x{}", hex::encode(&address)),
+            leading,
+            total,
+        );
+
+        let should_update = match &best_result {
+            None => true,
+            Some(best) => match &config.reward {
+                RewardVariant::LeadingZeros { .. } => {
+                    current_result.leading_zeros > best.leading_zeros
+                }
+                RewardVariant::TotalZeros { .. } => current_result.total_zeros > best.total_zeros,
+                RewardVariant::LeadingAndTotalZeros { .. }
+                | RewardVariant::LeadingOrTotalZeros { .. } => {
+                    current_result.leading_zeros > best.leading_zeros
+                        || current_result.total_zeros > best.total_zeros
+                }
+                RewardVariant::Matching { .. } => false, // For pattern matching, we don't track "best"
+            },
+        };
+
+        if should_update {
+            best_result = Some(current_result.clone());
         }
 
         file.lock_exclusive().expect("Couldn't lock file.");

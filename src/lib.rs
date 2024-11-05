@@ -562,6 +562,8 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
             Some(best) => match &config.reward {
                 RewardVariant::LeadingZeros { .. } => {
                     current_result.leading_zeros > best.leading_zeros
+                        || (current_result.leading_zeros == best.leading_zeros
+                            && current_result.total_zeros > best.total_zeros)
                 }
                 RewardVariant::TotalZeros { .. } => current_result.total_zeros > best.total_zeros,
                 RewardVariant::LeadingAndTotalZeros { .. }
@@ -569,7 +571,7 @@ pub fn gpu(config: Config) -> ocl::Result<()> {
                     current_result.leading_zeros > best.leading_zeros
                         || current_result.total_zeros > best.total_zeros
                 }
-                RewardVariant::Matching { .. } => false,
+                RewardVariant::Matching { .. } => false, // For pattern matching, we don't track "best"
             },
         };
 
